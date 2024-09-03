@@ -40,11 +40,13 @@ object SourceConnector {
   def process(args: Array[String], connectorSource: IConnectorSource)
              (implicit successSink: SinkFunction[String] = null, failedSink: SinkFunction[String] = null): Unit = {
     val config = getConfig(args)
+    println("config in use: " + config)
+    val connectorId = Option(ParameterTool.fromArgs(args).get("metadata.id")).getOrElse(config.getString("metadata.id"))
     implicit val pgConfig: PostgresConnectionConfig = DatasetRegistryConfig.getPostgresConfig(ParameterTool.fromArgs(args).get("config.file.path"))
-    implicit val env: StreamExecutionEnvironment = FlinkUtil.getExecutionContext(config)
+    implicit val env: StreamExecutionEnvironment = FlinkUtil.getExecutionContext(args, config)
     implicit val kc: FlinkKafkaConnector = if (successSink == null) new FlinkKafkaConnector(config) else null
     implicit val encUtil: EncryptionUtil = new EncryptionUtil(config.getString("obsrv.encryption.key"))
-    val connectorInstancesMap = getConnectorInstances(config)
+    val connectorInstancesMap = getConnectorInstances(args, config)
     connectorInstancesMap.foreach(entry => {
       val connectorConfig = getConnectorConfig(entry._1, config)
       try {
@@ -55,17 +57,18 @@ object SourceConnector {
         // TODO: How to raise an event for alerts?
       }
     })
-    env.execute(config.getString("metadata.id"))
+    env.execute(connectorId)
   }
 
   def processWindow[W <: Window](args: Array[String], connectorSource: IConnectorWindowSource[W])
                                 (implicit successSink: SinkFunction[String] = null, failedSink: SinkFunction[String] = null): Unit = {
     val config = getConfig(args)
+    val connectorId = Option(ParameterTool.fromArgs(args).get("metadata.id")).getOrElse(config.getString("metadata.id"))
     implicit val pgConfig: PostgresConnectionConfig = DatasetRegistryConfig.getPostgresConfig(ParameterTool.fromArgs(args).get("config.file.path"))
-    implicit val env: StreamExecutionEnvironment = FlinkUtil.getExecutionContext(config)
+    implicit val env: StreamExecutionEnvironment = FlinkUtil.getExecutionContext(args, config)
     implicit val kc: FlinkKafkaConnector = if (successSink == null) new FlinkKafkaConnector(config) else null
     implicit val encUtil: EncryptionUtil = new EncryptionUtil(config.getString("obsrv.encryption.key"))
-    val connectorInstancesMap = getConnectorInstances(config)
+    val connectorInstancesMap = getConnectorInstances(args, config)
     connectorInstancesMap.foreach(entry => {
       val connectorConfig = getConnectorConfig(entry._1, config)
       try {
@@ -76,7 +79,7 @@ object SourceConnector {
         // TODO: How to raise an event for alerts?
       }
     })
-    env.execute(config.getString("metadata.id"))
+    env.execute(connectorId)
   }
 
   private def processConnectorInstanceWindow[W <: Window](connectorSource: IConnectorWindowSource[W], connectorContexts: List[ConnectorContext], config: Config)
@@ -151,8 +154,9 @@ object SourceConnector {
       .withFallback(config)
   }
 
-  private def getConnectorInstances(config: Config)(implicit encryptionUtil: EncryptionUtil, postgresConnectionConfig: PostgresConnectionConfig): mutable.Map[ConnectorInstance, mutable.ListBuffer[ConnectorContext]] = {
-    val connectorInstances = ConnectorRegistry.getConnectorInstances(config.getString("metadata.id"))
+  private def getConnectorInstances(args: Array[String], config: Config)(implicit encryptionUtil: EncryptionUtil, postgresConnectionConfig: PostgresConnectionConfig): mutable.Map[ConnectorInstance, mutable.ListBuffer[ConnectorContext]] = {
+    val connectorId = Option(ParameterTool.fromArgs(args).get("metadata.id")).getOrElse(config.getString("metadata.id"))
+    val connectorInstances = ConnectorRegistry.getConnectorInstances(connectorId)
     connectorInstances.map(instances => {
       val connConfigList = mutable.ListBuffer[Map[String, AnyRef]]()
       val connectorInstanceMap = mutable.Map[ConnectorInstance, mutable.ListBuffer[ConnectorContext]]()
