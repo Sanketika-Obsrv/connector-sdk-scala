@@ -34,7 +34,7 @@ class FailedEventFunction(connectorCtx: ConnectorContext) extends BaseProcessFun
     val error = JSONUtil.deserialize[ErrorData](JSONUtil.serialize(map.get("error")))
     val sysEvent = generateSystemEvent(
       contextData = ContextData(connectorId = connectorCtx.connectorId, datasetId = connectorCtx.datasetId, connectorInstanceId = connectorCtx.connectorInstanceId,
-        connectorType = connectorCtx.connectorType, dataFormat = connectorCtx.dataFormat),
+        connectorType = connectorCtx.connectorType),
       error = error, StatusCode.failed
     )
     JSONUtil.serialize(sysEvent)

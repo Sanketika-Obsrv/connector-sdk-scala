@@ -59,7 +59,6 @@ object ConnectorRegistry {
     val datasetId = rs.getString("dataset_id")
     val connectorId = rs.getString("connector_id")
     val connectorType = rs.getString("connector_type")
-    val dataFormat = rs.getString("data_format")
     val connectorConfig = rs.getString("connector_config")
     val operationsConfig = rs.getString("operations_config")
     val status = rs.getString("status")
@@ -67,7 +66,7 @@ object ConnectorRegistry {
     val connectorStats = Some(rs.getString("connector_stats"))
     val entryTopic = rs.getString("entry_topic")
 
-    ConnectorInstance(connectorContext = ConnectorContext(connectorId, datasetId, id, connectorType, dataFormat, entryTopic, new ConnectorState(id, connectorState), new ConnectorStats(id, connectorStats)), connectorConfig = connectorConfig, operationsConfig = operationsConfig, status = status)
+    ConnectorInstance(connectorContext = ConnectorContext(connectorId, datasetId, id, connectorType, entryTopic, new ConnectorState(id, connectorState), new ConnectorStats(id, connectorStats)), connectorConfig = connectorConfig, operationsConfig = operationsConfig, status = status)
   }
 
 }

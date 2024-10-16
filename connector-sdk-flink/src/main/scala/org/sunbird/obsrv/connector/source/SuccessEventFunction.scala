@@ -41,9 +41,10 @@ class SuccessEventFunction(connectorCtx: ConnectorContext, config: Config) exten
 
   @throws[ObsrvException]
   private def toObsrvEvent(event: String): String = {
-    val eventJson = connectorCtx.dataFormat match {
-      case "json" => event
-      case _ => throw new ObsrvException(ConnectorConstants.INVALID_DATA_FORMAT_ERROR)
+    val eventJson = if (JSONUtil.isJson(event)) {
+      event
+    } else {
+      throw new ObsrvException(ConnectorConstants.INVALID_DATA_FORMAT_ERROR)
     }
     val syncts = System.currentTimeMillis()
     val obsrvMeta = s"""{"syncts":$syncts,"flags":{},"timespans":{},"error":{},"source":{"connector":"${connectorCtx.connectorId}","connectorInstance":"${connectorCtx.connectorInstanceId}"}}"""
