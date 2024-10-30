@@ -161,6 +161,7 @@ object SourceConnector {
       val connConfigList = mutable.ListBuffer[Map[String, AnyRef]]()
       val connectorInstanceMap = mutable.Map[ConnectorInstance, mutable.ListBuffer[ConnectorContext]]()
       instances.foreach(instance => {
+        /*
         val connConfig = JSONUtil.deserialize[Map[String, AnyRef]](encryptionUtil.decrypt(instance.connectorConfig))
         if (connConfigList.contains(connConfig)) { // Same source pointing to two datasets
           connectorInstanceMap(instance).append(instance.connectorContext)
@@ -168,6 +169,8 @@ object SourceConnector {
           connConfigList.append(connConfig)
           connectorInstanceMap.put(instance, mutable.ListBuffer(instance.connectorContext))
         }
+        */
+        connectorInstanceMap.put(instance, mutable.ListBuffer(instance.connectorContext))
       })
       connectorInstanceMap
     }).orElse(Some(mutable.Map[ConnectorInstance, mutable.ListBuffer[ConnectorContext]]())).get
