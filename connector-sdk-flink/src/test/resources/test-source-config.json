@@ -1,0 +1,18 @@
+{
+  "type": "connector",
+  "metadata": {
+    "id": "sample-source-connector",
+    "version": "1",
+    "name": "Sample Source Connector",
+    "type": "source",
+    "tenant": "single",
+    "category": "Stream",
+    "description": "Pull data from a Kafka source",
+    "technology": "scala",
+    "runtime": "flink",
+    "licence": "MIT",
+    "owner": "Sunbird",
+    "main_class": "org.sunbird.obsrv.connector.SampleSourceConnector",
+    "main_program": "sample-source-connector-1.0.0.jar"
+  }
+}

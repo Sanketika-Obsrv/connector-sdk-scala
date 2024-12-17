@@ -2,37 +2,28 @@ package org.sunbird.obsrv.connector
 
 import com.typesafe.config.{Config, ConfigFactory}
 import io.zonky.test.db.postgres.embedded.EmbeddedPostgres
+import org.apache.flink.api.scala.metrics.ScalaGauge
 import org.apache.flink.configuration.Configuration
-import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration
+import org.apache.flink.runtime.testutils.{InMemoryReporter, MiniClusterResourceConfiguration}
 import org.apache.flink.test.util.MiniClusterWithClientResource
 import org.scalatest.{BeforeAndAfterAll, FlatSpec}
-import org.sunbird.obsrv.connector.source.{IConnectorSource, SourceConnector}
 import org.sunbird.obsrv.job.util.{JSONUtil, PostgresConnect, PostgresConnectionConfig}
 
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
+import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
-import collection.JavaConverters._
 
 abstract class BaseFlinkConnectorSpec extends FlatSpec with BeforeAndAfterAll {
 
   var embeddedPostgres: EmbeddedPostgres = _
-
+  val metricsReporter = InMemoryReporter.createWithRetainedMetrics
   val flinkCluster = new MiniClusterWithClientResource(new MiniClusterResourceConfiguration.Builder()
-    .setConfiguration(testConfiguration())
+    .setConfiguration(metricsReporter.addToConfiguration(new Configuration()))
     .setNumberSlotsPerTaskManager(1)
     .setNumberTaskManagers(1)
     .build)
-
-  def testConfiguration(): Configuration = {
-    val config = new Configuration()
-    config.setString("metrics.reporter", "job_metrics_reporter")
-    config.setString("metrics.reporter.job_metrics_reporter.class", classOf[BaseMetricsReporter].getName)
-    config
-  }
 
   val config: Config = ConfigFactory.load("connector.conf")
   val postgresConfig: PostgresConnectionConfig = PostgresConnectionConfig(
@@ -49,13 +40,16 @@ abstract class BaseFlinkConnectorSpec extends FlatSpec with BeforeAndAfterAll {
     BaseMetricsReporter.gaugeMetrics.clear()
     embeddedPostgres = EmbeddedPostgres.builder.setPort(config.getInt("postgres.port")).start()
     val postgresConnect = new PostgresConnect(postgresConfig)
-    setupConnectorFramework(postgresConnect)
-    loadConnectorData(postgresConnect)
+    try {
+      setupConnectorFramework(postgresConnect)
+      loadConnectorData(postgresConnect)
+    } catch {
+      case ex: Exception => ex.printStackTrace()
+    }
+
     postgresConnect.closeConnection()
     flinkCluster.before()
   }
-
-
 
   override def afterAll(): Unit = {
     super.afterAll()
@@ -70,12 +64,20 @@ abstract class BaseFlinkConnectorSpec extends FlatSpec with BeforeAndAfterAll {
     postgresConnect.execute("CREATE TABLE IF NOT EXISTS connector_instances ( id TEXT PRIMARY KEY, dataset_id TEXT NOT NULL REFERENCES datasets (id), connector_id TEXT NOT NULL REFERENCES connector_registry (id), connector_config text NOT NULL, operations_config json NOT NULL, status TEXT NOT NULL, connector_state json, connector_stats json, created_by text NOT NULL, updated_by text NOT NULL, created_date TIMESTAMP NOT NULL DEFAULT now(), updated_date TIMESTAMP NOT NULL, published_date TIMESTAMP NOT NULL DEFAULT now());")
   }
 
+  def getConnectorConfigFile(): String
+
+  def getConnectorConfig(): Map[String, AnyRef]
+
+  def getConnectorName(): String
+
+  def validateMetrics(metrics: Map[String, Long]): Unit
+
   def loadConnectorData(postgresConnect: PostgresConnect): Unit = {
 
     val cipher = Cipher.getInstance("AES")
     val key = new SecretKeySpec(config.getString("obsrv.encryption.key").getBytes("utf-8"), "AES")
     cipher.init(Cipher.ENCRYPT_MODE, key)
-    val encryptedByteValue = cipher.doFinal(JSONUtil.serialize(getSourceConfig()).getBytes("utf-8"))
+    val encryptedByteValue = cipher.doFinal(JSONUtil.serialize(getConnectorConfig()).getBytes("utf-8"))
     val connectorConfig = Base64.getEncoder.encodeToString(encryptedByteValue)
 
     val connConfig = ConfigFactory.load(getConnectorConfigFile())
@@ -83,7 +85,7 @@ abstract class BaseFlinkConnectorSpec extends FlatSpec with BeforeAndAfterAll {
     postgresConnect.execute("insert into connector_registry(id, version, type, category, name, description, technology, licence, owner, status, created_by, updated_by, created_date, updated_date, live_date) " +
       "values ('" + connConfig.getString("metadata.id") + "', '" + connConfig.getString("metadata.version") + "','" + connConfig.getString("metadata.type") + "', '" + connConfig.getString("metadata.category") + "','" + connConfig.getString("metadata.name") + "', '" + connConfig.getString("metadata.description") + "', '" + connConfig.getString("metadata.technology") + "', '" + connConfig.getString("metadata.licence") + "', '" + connConfig.getString("metadata.owner") + "', 'Live', 'System', 'System', now(), now(), now());")
     postgresConnect.execute("insert into connector_instances(id, dataset_id, connector_id, connector_config, operations_config, status, connector_state, connector_stats, created_by, updated_by, created_date, updated_date, published_date) " +
-      "values ('c1', 'd1', '" + connConfig.getString("metadata.id") + "', '"+ connectorConfig +"','{}', 'Live', '{}', '{}', 'System', 'System', now(), now(), now());")
+      "values ('c1', 'd1', '" + connConfig.getString("metadata.id") + "', '" + connectorConfig + "','{}', 'Live', '{}', '{}', 'System', 'System', now(), now(), now());")
   }
 
   def getPrintableMetrics(metricsMap: mutable.Map[String, Long]): Map[String, Map[String, Map[String, Long]]] = {
@@ -97,34 +99,19 @@ abstract class BaseFlinkConnectorSpec extends FlatSpec with BeforeAndAfterAll {
     }).groupBy(f => f._1).mapValues(f => f.map(p => (p._2, p._3, p._4))).mapValues(f => f.groupBy(p => p._1).mapValues(q => q.map(r => (r._2, r._3)).toMap))
   }
 
-  def getConnectorConfigFile(): String
-
-  def getConnectorName(): String
-
-  def getConnectorSource(): IConnectorSource
-
-  def getSourceConfig(): Map[String, AnyRef]
-
-  def testFailedEvents(events: java.util.List[String])
-
-  def testSuccessEvents(events: java.util.List[String])
-
-  "BaseFlinkConnectorSpec" should s"test the ${getConnectorName()} connector" in {
-
-    EventsSink.failedEvents.clear()
-    EventsSink.successEvents.clear()
-    Future {
-      SourceConnector.process(Array("--config.file.path", getConnectorConfigFile()), getConnectorSource())(new SuccessSink(), new FailedSink())
-    }
-    Thread.sleep(10000)
-    val mutableMetricsMap = mutable.Map[String, Long]()
-    BaseMetricsReporter.gaugeMetrics.toMap.mapValues(f => f.getValue()).map(f => mutableMetricsMap.put(f._1, f._2))
-    testFailedEvents(EventsSink.failedEvents)
-    val successEvents = EventsSink.successEvents.asScala.map(f => {
-      val event = JSONUtil.deserialize[Map[String, AnyRef]](f).get("event").get
-      JSONUtil.serialize(event)
-    }).asJava
-    testSuccessEvents(successEvents)
-
+  def getMetrics(metricsReporter: InMemoryReporter, dataset: String, debug: Option[Boolean] = None): Map[String, Long] = {
+    val groups = metricsReporter.findGroups(dataset).asScala
+    groups.map(group => metricsReporter.getMetricsByGroup(group).asScala)
+      .map(group => group.map { case (k, v) =>
+        val value = if (v.isInstanceOf[ScalaGauge[Long]]) v.asInstanceOf[ScalaGauge[Long]].getValue() else 0
+        if (debug.isDefined && debug.get)
+          Console.println("Metric", k, value)
+        k -> value
+      })
+      .map(f => f.toMap)
+      .reduce((map1, map2) => {
+        val mergedMap = map2.map { case (k: String, v: Long) => k -> (v + map1.getOrElse(k, 0L)) }
+        map1 ++ mergedMap
+      })
   }
 }

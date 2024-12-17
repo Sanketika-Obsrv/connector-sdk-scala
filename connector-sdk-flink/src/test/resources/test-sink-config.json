@@ -1,0 +1,18 @@
+{
+  "type": "connector",
+  "metadata": {
+    "id": "sample-sink-connector",
+    "version": "1",
+    "name": "Sample Sink Connector",
+    "type": "sink",
+    "tenant": "single",
+    "category": "Stream",
+    "description": "Push data to a Kafka sink",
+    "technology": "scala",
+    "runtime": "flink",
+    "licence": "MIT",
+    "owner": "Sunbird",
+    "main_class": "org.sunbird.obsrv.connector.SampleSinkConnector",
+    "main_program": "sample-sink-connector-1.0.0.jar"
+  }
+}

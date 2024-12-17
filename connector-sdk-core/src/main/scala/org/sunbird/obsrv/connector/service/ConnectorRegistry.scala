@@ -1,6 +1,6 @@
 package org.sunbird.obsrv.connector.service
 
-import org.sunbird.obsrv.connector.model.Models.{ConnectorContext, ConnectorInstance}
+import org.sunbird.obsrv.connector.model.Models.{ConnectorContext, ConnectorInstance, RouterConfig}
 import org.sunbird.obsrv.connector.model.{ConnectorState, ConnectorStats}
 import org.sunbird.obsrv.job.util.{JSONUtil, PostgresConnect, PostgresConnectionConfig}
 
@@ -11,7 +11,7 @@ object ConnectorRegistry {
 
     val postgresConnect = new PostgresConnect(postgresConnectionConfig)
     try {
-      val rs = postgresConnect.executeQuery(s"SELECT ci.*, d.entry_topic, cr.type as connector_type FROM connector_instances as ci JOIN connector_registry cr ON ci.connector_id = cr.id JOIN datasets d ON ci.dataset_id = d.id WHERE ci.connector_id = '$connectorId' AND d.status = 'Live' AND cr.status='Live' AND ci.status = 'Live'")
+      val rs = postgresConnect.executeQuery(s"SELECT ci.*, d.entry_topic, d.router_config, cr.type as connector_type FROM connector_instances as ci JOIN connector_registry cr ON ci.connector_id = cr.id JOIN datasets d ON ci.dataset_id = d.id WHERE ci.connector_id = '$connectorId' AND d.status = 'Live' AND cr.status='Live' AND ci.status = 'Live'")
       Option(Iterator.continually((rs, rs.next)).takeWhile(f => f._2).map(f => f._1).map(result => {
         val datasetSourceConfig = parseConnectorInstance(result)
         datasetSourceConfig
@@ -24,7 +24,7 @@ object ConnectorRegistry {
   def getConnectorInstance(connectorInstanceId: String)(implicit postgresConnectionConfig: PostgresConnectionConfig): Option[ConnectorInstance] = {
     val postgresConnect = new PostgresConnect(postgresConnectionConfig)
     try {
-      val rs = postgresConnect.executeQuery(s"SELECT ci.*, d.entry_topic, cr.type as connector_type FROM connector_instances as ci JOIN connector_registry cr ON ci.connector_id = cr.id JOIN datasets d ON ci.dataset_id = d.id WHERE ci.id = '$connectorInstanceId' AND d.status = 'Live' AND cr.status='Live' AND ci.status = 'Live'")
+      val rs = postgresConnect.executeQuery(s"SELECT ci.*, d.entry_topic, d.router_config, cr.type as connector_type FROM connector_instances as ci JOIN connector_registry cr ON ci.connector_id = cr.id JOIN datasets d ON ci.dataset_id = d.id WHERE ci.id = '$connectorInstanceId' AND d.status = 'Live' AND cr.status='Live' AND ci.status = 'Live'")
       if (rs.next()) {
         Some(parseConnectorInstance(rs))
       } else {
@@ -65,8 +65,10 @@ object ConnectorRegistry {
     val connectorState = Some(rs.getString("connector_state"))
     val connectorStats = Some(rs.getString("connector_stats"))
     val entryTopic = rs.getString("entry_topic")
+    val routerConfigStr = rs.getString("router_config")
+    val routerConfig = JSONUtil.deserialize[RouterConfig](routerConfigStr)
 
-    ConnectorInstance(connectorContext = ConnectorContext(connectorId, datasetId, id, connectorType, entryTopic, new ConnectorState(id, connectorState), new ConnectorStats(id, connectorStats)), connectorConfig = connectorConfig, operationsConfig = operationsConfig, status = status)
+    ConnectorInstance(connectorContext = ConnectorContext(connectorId, datasetId, id, connectorType, entryTopic, new ConnectorState(id, connectorState), new ConnectorStats(id, connectorStats), Some(routerConfig.topic)), connectorConfig = connectorConfig, operationsConfig = operationsConfig, status = status)
   }
 
 }
