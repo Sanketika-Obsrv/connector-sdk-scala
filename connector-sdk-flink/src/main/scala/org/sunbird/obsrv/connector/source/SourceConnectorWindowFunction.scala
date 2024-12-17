@@ -27,13 +27,16 @@ abstract class SourceConnectorWindowFunction[W <: Window](connectorContexts: Lis
   private def incMetric(metric: String, count: Long)(implicit mtx: Metrics): Unit = {
     if (getMetrics().contains(metric)) {
       connectorContexts.foreach(ctx => {
-        metrics.incCounter(ctx.connectorInstanceId, metric, count)
+        mtx.incCounter(ctx.connectorInstanceId, metric, count)
       })
     }
   }
 
   override def process(key: String, context: ProcessWindowFunction[String, String, String, W]#Context, elements: lang.Iterable[String], metrics: Metrics): Unit = {
 
+    connectorContexts.foreach(ctx => {
+      super.initMetrics(ctx.connectorId, ctx.connectorInstanceId)
+    })
     implicit val ctx: ProcessWindowFunction[String, String, String, W]#Context = context
     implicit val mtx = metrics
     val eventsList = elements.asScala.toList

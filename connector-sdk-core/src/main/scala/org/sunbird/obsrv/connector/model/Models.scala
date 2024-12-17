@@ -12,11 +12,14 @@ object Models {
      @JsonProperty("connector_type") connectorType: String,
      @JsonIgnore entryTopic: String,
      @JsonIgnore state: ConnectorState,
-     @JsonIgnore stats: ConnectorStats
+     @JsonIgnore stats: ConnectorStats,
+     @JsonIgnore datasetTopic: Option[String] = None
    )
 
   case class ConnectorInstance(connectorContext: ConnectorContext, connectorConfig: String, operationsConfig: String, status: String) extends Serializable
 
   case class ErrorEvent(event: String, error: ErrorData)
+
+  case class RouterConfig(@JsonProperty("topic") topic: String)
 
 }
