@@ -27,20 +27,19 @@ object SourceConnector {
     val configFilePath = configFilePathOpt.getOrElse("config.json")
     val configFile = new File(configFilePath)
     val config: Config = if (configFile.exists()) {
-      println("Loading configuration file from path: " + configFilePath + "...")
+      logger.info("Loading configuration file from path: " + configFilePath + "...")
       ConfigFactory.parseFile(configFile).resolve()
     } else {
-      println("Loading configuration file connector.conf inside the jar...")
-      ConfigFactory.load("connector.conf").withFallback(ConfigFactory.systemEnvironment())
+      logger.info("Loading configuration file inside the jar...")
+      ConfigFactory.load(configFilePath).withFallback(ConfigFactory.load("connector.conf")).withFallback(ConfigFactory.systemEnvironment())
     }
     config
-    // ConfigFactory.load(configFilePath).withFallback(ConfigFactory.load("connector.conf")).withFallback(ConfigFactory.systemEnvironment())
   }
 
   def process(args: Array[String], connectorSource: IConnectorSource)
              (implicit successSink: SinkFunction[String] = null, failedSink: SinkFunction[String] = null): Unit = {
     val config = getConfig(args)
-    println("config in use: " + config)
+    logger.info("config in use: " + config)
     val connectorId = Option(ParameterTool.fromArgs(args).get("metadata.id")).getOrElse(config.getString("metadata.id"))
     implicit val pgConfig: PostgresConnectionConfig = DatasetRegistryConfig.getPostgresConfig(ParameterTool.fromArgs(args).get("config.file.path"))
     implicit val env: StreamExecutionEnvironment = FlinkUtil.getExecutionContext(args, config)
