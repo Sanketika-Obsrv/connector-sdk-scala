@@ -5,18 +5,15 @@
         <groupId>org.sunbird.obsrv.connector</groupId>
         <artifactId>connector-sdk-scala</artifactId>
         <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
-<!--    <groupId>org.sunbird.obsrv.connector</groupId>-->
     <artifactId>connector-sdk-core</artifactId>
     <version>1.0.0</version>
     <name>Core Connector SDK</name>
 
     <properties>
-        <scala.version>2.12.11</scala.version>
-        <scala.maj.version>2.12</scala.maj.version>
-        <scoverage.plugin.version>1.4.0</scoverage.plugin.version>
         <java.target.runtime>11</java.target.runtime>
         <log4j.version>2.23.1</log4j.version>
     </properties>
