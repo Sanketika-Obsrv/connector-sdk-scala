@@ -19,9 +19,12 @@ class SampleSourceConnectorTestSpec extends BaseFlinkSourceConnectorSpec with Se
   override def beforeAll(): Unit = {
     EmbeddedKafka.start()(embeddedKafkaConfig)
     createTestTopics()
+    super.beforeAll()
+  }
+
+  override def beforeEach(): Unit = {
     EmbeddedKafka.publishStringMessageToKafka("test-kafka-topic", EventFixture.INVALID_JSON)
     EmbeddedKafka.publishStringMessageToKafka("test-kafka-topic", EventFixture.VALID_JSON)
-    super.beforeAll()
   }
 
   override def afterAll(): Unit = {
@@ -58,5 +61,8 @@ class SampleSourceConnectorTestSpec extends BaseFlinkSourceConnectorSpec with Se
     )
   }
 
-  override def validateMetrics(metrics: Map[String, Long]): Unit = {}
+  override def validateMetrics(metrics: Map[String, Long]): Unit = {
+    metrics.get("total_obsrv_success_count").get should be (1)
+    metrics.get("total_connector_failed_count").get should be (1)
+  }
 }
