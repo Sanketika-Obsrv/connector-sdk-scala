@@ -12,6 +12,7 @@ import org.sunbird.obsrv.connector.model.Models._
 import org.sunbird.obsrv.connector.service.ConnectorRegistry
 import org.sunbird.obsrv.connector.util.EncryptionUtil
 import org.sunbird.obsrv.job.exception.ObsrvException
+import org.sunbird.obsrv.job.model.Models.ErrorData
 import org.sunbird.obsrv.job.util._
 
 import java.io.File
@@ -40,7 +41,14 @@ object SourceConnector {
              (implicit successSink: SinkFunction[String] = null, failedSink: SinkFunction[String] = null): Unit = {
     val config = getConfig(args)
     logger.info("config in use: " + config)
-    val connectorId = Option(ParameterTool.fromArgs(args).get("metadata.id")).getOrElse(config.getString("metadata.id"))
+    val connectorInstanceId = Option(ParameterTool.fromArgs(args).get("connector.instance.id")).getOrElse("")
+    val connectorId = Option(ParameterTool.fromArgs(args).get("metadata.id")).getOrElse("")
+
+    if (connectorInstanceId.isEmpty && connectorId.isEmpty) {
+      logger.error("connector.instance.id or metadata.id is required")
+      throw new ObsrvException(ErrorData("PARAMETER_REQUIRED", "connector.instance.id or metadata.id is required"))
+    }
+
     implicit val pgConfig: PostgresConnectionConfig = DatasetRegistryConfig.getPostgresConfig(ParameterTool.fromArgs(args).get("config.file.path"))
     implicit val env: StreamExecutionEnvironment = FlinkUtil.getExecutionContext(args, config)
     implicit val kc: FlinkKafkaConnector = if (successSink == null) new FlinkKafkaConnector(config) else null
@@ -56,13 +64,24 @@ object SourceConnector {
         // TODO: How to raise an event for alerts?
       }
     })
-    env.execute(connectorId)
+
+    if (connectorInstanceId.nonEmpty) {
+      env.execute(connectorInstanceId)
+    } else {
+      env.execute(connectorId)
+    }
   }
 
   def processWindow[W <: Window](args: Array[String], connectorSource: IConnectorWindowSource[W])
                                 (implicit successSink: SinkFunction[String] = null, failedSink: SinkFunction[String] = null): Unit = {
     val config = getConfig(args)
-    val connectorId = Option(ParameterTool.fromArgs(args).get("metadata.id")).getOrElse(config.getString("metadata.id"))
+    val connectorInstanceId = Option(ParameterTool.fromArgs(args).get("connector.instance.id")).getOrElse("")
+    val connectorId = Option(ParameterTool.fromArgs(args).get("metadata.id")).getOrElse("")
+
+    if (connectorInstanceId.isEmpty && connectorId.isEmpty) {
+      logger.error("connector.instance.id or metadata.id is required")
+      throw new ObsrvException(ErrorData("PARAMETER_REQUIRED", "connector.instance.id or metadata.id is required"))
+    }
     implicit val pgConfig: PostgresConnectionConfig = DatasetRegistryConfig.getPostgresConfig(ParameterTool.fromArgs(args).get("config.file.path"))
     implicit val env: StreamExecutionEnvironment = FlinkUtil.getExecutionContext(args, config)
     implicit val kc: FlinkKafkaConnector = if (successSink == null) new FlinkKafkaConnector(config) else null
@@ -78,7 +97,12 @@ object SourceConnector {
         // TODO: How to raise an event for alerts?
       }
     })
-    env.execute(connectorId)
+
+    if (connectorInstanceId.nonEmpty) {
+      env.execute(connectorInstanceId)
+    } else {
+      env.execute(connectorId)
+    }
   }
 
   private def processConnectorInstanceWindow[W <: Window](connectorSource: IConnectorWindowSource[W], connectorContexts: List[ConnectorContext], config: Config)
@@ -154,8 +178,15 @@ object SourceConnector {
   }
 
   private def getConnectorInstances(args: Array[String], config: Config)(implicit encryptionUtil: EncryptionUtil, postgresConnectionConfig: PostgresConnectionConfig): mutable.Map[ConnectorInstance, mutable.ListBuffer[ConnectorContext]] = {
-    val connectorId = Option(ParameterTool.fromArgs(args).get("metadata.id")).getOrElse(config.getString("metadata.id"))
-    val connectorInstances = ConnectorRegistry.getConnectorInstances(connectorId)
+    val connectorInstanceId = Option(ParameterTool.fromArgs(args).get("connector.instance.id")).getOrElse("")
+    val connectorId = Option(ParameterTool.fromArgs(args).get("metadata.id")).getOrElse("")
+
+    val connectorInstances = if (connectorInstanceId.nonEmpty) {
+      ConnectorRegistry.getConnectorInstance(connectorInstanceId).map(List(_))
+    } else {
+      ConnectorRegistry.getConnectorInstances(connectorId)
+    }
+
     connectorInstances.map(instances => {
       val connConfigList = mutable.ListBuffer[Map[String, AnyRef]]()
       val connectorInstanceMap = mutable.Map[ConnectorInstance, mutable.ListBuffer[ConnectorContext]]()
