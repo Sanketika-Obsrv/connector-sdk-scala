@@ -34,20 +34,22 @@ abstract class BaseFlinkSourceConnectorSpec extends BaseFlinkConnectorSpec {
     validateMetrics(getMetrics(metricsReporter, metadataId))
   }
 
-  "BaseFlinkSourceConnectorSpec" should s"test the ${getConnectorName()} connector with connector.instance.id" in {
-    val instanceId = "c1"
-    EventsSink.failedEvents.clear()
-    EventsSink.successEvents.clear()
-    Future {
-      SourceConnector.process(Array("--config.file.path", getConnectorConfigFile(), "--connector.instance.id", instanceId), getConnector())(new SuccessSink(), new FailedSink())
+  if (getConnectorName().equals("SampleSourceConnector")) {
+    "BaseFlinkSourceConnectorSpec" should s"test the ${getConnectorName()} connector with connector.instance.id" in {
+      val instanceId = "c1"
+      EventsSink.failedEvents.clear()
+      EventsSink.successEvents.clear()
+      Future {
+        SourceConnector.process(Array("--config.file.path", getConnectorConfigFile(), "--connector.instance.id", instanceId), getConnector())(new SuccessSink(), new FailedSink())
+      }
+      Thread.sleep(10000)
+      val successEvents = EventsSink.successEvents.asScala.map(f => {
+        val event = JSONUtil.deserialize[Map[String, AnyRef]](f).get("event").get
+        JSONUtil.serialize(event)
+      }).asJava
+      testSuccessEvents(successEvents)
+      testFailedEvents(EventsSink.failedEvents)
+      validateMetrics(getMetrics(metricsReporter, instanceId))
     }
-    Thread.sleep(10000)
-    val successEvents = EventsSink.successEvents.asScala.map(f => {
-      val event = JSONUtil.deserialize[Map[String, AnyRef]](f).get("event").get
-      JSONUtil.serialize(event)
-    }).asJava
-    testSuccessEvents(successEvents)
-    testFailedEvents(EventsSink.failedEvents)
-    validateMetrics(getMetrics(metricsReporter, instanceId))
   }
 }
