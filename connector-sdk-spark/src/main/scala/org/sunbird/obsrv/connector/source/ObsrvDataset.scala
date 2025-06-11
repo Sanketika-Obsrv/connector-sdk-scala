@@ -11,7 +11,7 @@ class ObsrvDataset(ds: Dataset[String]) {
   def getObsrvMeta(ctx: ConnectorContext, errorData: Map[String, String] = Map[String, String]()): String = {
     val syncts = System.currentTimeMillis()
     JSONUtil.serialize(Map[String, AnyRef](
-      "syncts" -> s"$syncts",
+      "syncts" -> Long.box(syncts),
       "flags" -> Map[String, AnyRef](),
       "timespans" -> Map[String, AnyRef](),
       "error" -> errorData,

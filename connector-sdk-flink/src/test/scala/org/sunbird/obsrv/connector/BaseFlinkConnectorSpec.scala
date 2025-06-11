@@ -6,7 +6,7 @@ import org.apache.flink.api.scala.metrics.ScalaGauge
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.runtime.testutils.{InMemoryReporter, MiniClusterResourceConfiguration}
 import org.apache.flink.test.util.MiniClusterWithClientResource
-import org.scalatest.{BeforeAndAfterAll, FlatSpec}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FlatSpec}
 import org.sunbird.obsrv.job.util.{JSONUtil, PostgresConnect, PostgresConnectionConfig}
 
 import java.util.Base64
@@ -15,7 +15,7 @@ import javax.crypto.spec.SecretKeySpec
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-abstract class BaseFlinkConnectorSpec extends FlatSpec with BeforeAndAfterAll {
+abstract class BaseFlinkConnectorSpec extends FlatSpec with BeforeAndAfterEach with BeforeAndAfterAll {
 
   var embeddedPostgres: EmbeddedPostgres = _
   val metricsReporter = InMemoryReporter.createWithRetainedMetrics

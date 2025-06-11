@@ -16,12 +16,13 @@ abstract class BaseFlinkSourceConnectorSpec extends BaseFlinkConnectorSpec {
 
   def testSuccessEvents(events: java.util.List[String]): Unit
 
-  "BaseFlinkConnectorSpec" should s"test the ${getConnectorName()} connector" in {
+  "BaseFlinkSourceConnectorSpec" should s"test the ${getConnectorName()} connector with metadata.id" in {
     val connConfig = ConfigFactory.load(getConnectorConfigFile())
+    val metadataId = connConfig.getString("metadata.id")
     EventsSink.failedEvents.clear()
     EventsSink.successEvents.clear()
     Future {
-      SourceConnector.process(Array("--config.file.path", getConnectorConfigFile()), getConnector())(new SuccessSink(), new FailedSink())
+      SourceConnector.process(Array("--config.file.path", getConnectorConfigFile(), "--metadata.id", metadataId), getConnector())(new SuccessSink(), new FailedSink())
     }
     Thread.sleep(10000)
     val successEvents = EventsSink.successEvents.asScala.map(f => {
@@ -30,6 +31,25 @@ abstract class BaseFlinkSourceConnectorSpec extends BaseFlinkConnectorSpec {
     }).asJava
     testSuccessEvents(successEvents)
     testFailedEvents(EventsSink.failedEvents)
-    validateMetrics(getMetrics(metricsReporter, connConfig.getString("metadata.id")))
+    validateMetrics(getMetrics(metricsReporter, metadataId))
+  }
+
+  if (getConnectorName().equals("SampleSourceConnector")) {
+    "BaseFlinkSourceConnectorSpec" should s"test the ${getConnectorName()} connector with connector.instance.id" in {
+      val instanceId = "c1"
+      EventsSink.failedEvents.clear()
+      EventsSink.successEvents.clear()
+      Future {
+        SourceConnector.process(Array("--config.file.path", getConnectorConfigFile(), "--connector.instance.id", instanceId), getConnector())(new SuccessSink(), new FailedSink())
+      }
+      Thread.sleep(10000)
+      val successEvents = EventsSink.successEvents.asScala.map(f => {
+        val event = JSONUtil.deserialize[Map[String, AnyRef]](f).get("event").get
+        JSONUtil.serialize(event)
+      }).asJava
+      testSuccessEvents(successEvents)
+      testFailedEvents(EventsSink.failedEvents)
+      validateMetrics(getMetrics(metricsReporter, instanceId))
+    }
   }
 }
