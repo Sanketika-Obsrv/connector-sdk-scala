@@ -9,6 +9,13 @@
         <maven>3.0.0</maven>
     </prerequisites>
 
+    <licenses>
+		<license>
+    		<name>MIT License</name>
+    		<url>http://www.opensource.org/licenses/mit-license.php</url>
+  		</license>
+	</licenses>
+
     <groupId>org.sunbird.obsrv.connector</groupId>
     <artifactId>connector-sdk-scala</artifactId>
     <version>1.0.0</version>
@@ -16,6 +23,13 @@
     <name>Obsrv Connectors SDK</name>
     <description>Obsrv Connectors SDK</description>
     <url>https://sunbird.org/</url>
+
+    <!-- Required for Maven Central -->
+    <scm>
+        <connection>scm:git:git://github.com/Sunbird-Obsrv/connector-sdk-scala.git</connection>
+        <developerConnection>scm:git:ssh://github.com:Sunbird-Obsrv/connector-sdk-scala.git</developerConnection>
+        <url>https://github.com/Sunbird-Obsrv/connector-sdk-scala/tree/main</url>
+    </scm>
 
     <modules>
     	<module>connector-sdk-core</module>
@@ -33,6 +47,22 @@
         <jackson-jaxrs.version>1.9.13</jackson-jaxrs.version>
         <scoverage.plugin.version>1.4.0</scoverage.plugin.version>
     </properties>
+
+    <developers>
+		<developer>
+			<name>Sunbird</name>
+			<email>info@sunbird.org</email>
+			<organization>Sunbird</organization>
+			<organizationUrl>https://www.sunbird.org/</organizationUrl>
+		</developer>
+  	</developers>
+
+    <distributionManagement>
+        <repository>
+            <id>central</id>
+            <url>https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/</url>
+        </repository>
+    </distributionManagement>
 
     <repositories>
         <repository>
@@ -59,6 +89,84 @@
     </pluginRepositories>
 
     <build>
+        <plugins>
+            <!-- Central Publishing Plugin -->
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>0.8.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <autoPublish>false</autoPublish>
+                </configuration>
+            </plugin>
+
+            <!-- Javadoc Plugin -->
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <version>4.8.1</version>
+                <executions>
+                    <execution>
+                        <id>scala-compile-first</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>scala-test-compile</id>
+                        <phase>process-test-resources</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>doc-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <scalaVersion>${scala.version}</scalaVersion>
+                </configuration>
+            </plugin>
+
+            <!-- Source Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- GPG Plugin -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>sign-artifacts</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>sign</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+
         <pluginManagement>
             <plugins>
                 <plugin>
